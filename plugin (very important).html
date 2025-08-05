@@ -1,244 +1,156 @@
+---physics 2d---
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar">
 <head>
-  <meta charset="utf-8" />
-  <title>wetbox game engine</title>
-  <style>
-    html, body {
-      margin: 0; padding: 0;
-      width: 100%; height: 100%;
-      overflow: hidden;
-      font-family: "Segoe UI", sans-serif;
-    }
-    canvas {
-      width: 100%;
-      height: 100%;
-      touch-action: none;
-      display: block;
-    }
-    #controls {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      z-index: 999;
-    }
-    .control-btn {
-      background: linear-gradient(135deg, #7b4aff, #4b00b5); /* بنفسجي تدرج */
-      color: white;
-      border: none;
-      padding: 14px;
-      border-radius: 12px;
-      font-size: 16px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 48px;
-      height: 48px;
-      box-shadow: none;
-      transition: none;
-      transform: none;
-    }
-    .control-btn:hover,
-    .control-btn:active,
-    .control-btn:focus {
-      background: linear-gradient(135deg, #7b4aff, #4b00b5);
-      box-shadow: none;
-      transform: none;
-      outline: none;
-    }
-    .control-btn i {
-      font-size: 20px;
-    }
-
-    /* انيميشن ظهور واختفاء محرر السكربت */
-    #editorContainer {
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 50%;
-      height: 100%;
-      display: flex; /* flex بدل block */
-      flex-direction: row; /* صف أفقي */
-      align-items: stretch;
-      z-index: 998;
-      background-color: #1e1e1e;
-
-      /* الحالة الابتدائية مخفية */
-      transform: translateX(100%);
-      opacity: 0;
-      transition: transform 0.4s ease, opacity 0.4s ease;
-      pointer-events: none; /* تمنع التفاعل لما مخفية */
-    }
-    #editorContainer.visible {
-      transform: translateX(0);
-      opacity: 1;
-      pointer-events: auto; /* تسمح بالتفاعل لما ظاهرة */
-    }
-
-    #runButton {
-      background: linear-gradient(to right, #7b4aff, #4b00b5); /* بنفسجي تدرج */
-      color: white;
-      border: none;
-      padding: 12px 20px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-size: 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      box-shadow: none;
-      transition: none;
-      transform: none;
-
-      /* حجم وزاوية */
-      width: 90px;
-      margin: 10px;
-      white-space: nowrap;
-      flex-shrink: 0;
-      user-select: none;
-      justify-content: center;
-    }
-    #runButton:hover,
-    #runButton:active,
-    #runButton:focus {
-      background: linear-gradient(to right, #7b4aff, #4b00b5);
-      box-shadow: none;
-      transform: none;
-      outline: none;
-    }
-    #runButton i {
-      font-size: 16px;
-    }
-
-    #editor {
-      flex-grow: 1;
-      height: 100%;
-      margin: 10px 10px 10px 0;
-    }
-  </style>
-
-  <!-- Babylon.js -->
-  <script src="https://cdn.babylonjs.com/babylon.js"></script>
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-  <!-- Monaco Editor -->
-  <script src="https://unpkg.com/monaco-editor@0.44.0/min/vs/loader.js"></script>
+<meta charset="UTF-8" />
+<title>2d physics (sample)</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #222; }
+  canvas { display: block; margin: auto; background: #eee; }
+</style>
 </head>
 <body>
-  <div id="controls">
-    <button class="control-btn" onclick="activateGizmo('move')"><i class="fa-solid fa-up-down-left-right"></i></button>
-    <button class="control-btn" onclick="activateGizmo('rotate')"><i class="fa-solid fa-rotate-right"></i></button>
-    <button class="control-btn" onclick="activateGizmo('scale')"><i class="fa-solid fa-expand"></i></button>
-    <button class="control-btn" onclick="toggleEditor()"><i class="fa-solid fa-code"></i></button>
-  </div>
 
-  <canvas id="renderCanvas"></canvas>
-  <div id="editorContainer">
-    <button id="runButton" onclick="runEditorCode()"><i class="fa-solid fa-play"></i> Run</button>
-    <div id="editor"></div>
-  </div>
+<canvas id="game"></canvas>
 
-  <script>
-    const canvas = document.getElementById("renderCanvas");
-    const engine = new BABYLON.Engine(canvas, true);
-    let gizmoManager, box;
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+canvas.width = 600;
+canvas.height = 400;
 
-    const createScene = function () {
-      const scene = new BABYLON.Scene(engine);
+let ball = {
+  x: 100,
+  y: 100,
+  radius: 20,
+  vx: 3,
+  vy: 0,
+  gravity: 0.5,
+  bounceFactor: 0.7
+};
 
-      const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 4, 8, BABYLON.Vector3.Zero(), scene);
-      camera.attachControl(canvas, true);
-      const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+const friction = 0.98;
 
-      BABYLON.MeshBuilder.CreateGround("ground", { width: 6, height: 6 }, scene);
+function update() {
+  ball.vy += ball.gravity;
+  ball.x += ball.vx;
+  ball.y += ball.vy;
 
-      box = BABYLON.MeshBuilder.CreateBox("box", { size: 1.5 }, scene);
-      box.position.y = 1;
-      box.setPivotPoint(BABYLON.Vector3.Zero());
+  if (ball.y + ball.radius > canvas.height) {
+    ball.y = canvas.height - ball.radius;
+    ball.vy *= -ball.bounceFactor;
+    ball.vx *= friction;
+  }
 
-      const mat = new BABYLON.StandardMaterial("mat", scene);
-      mat.diffuseColor = new BABYLON.Color3(0.3, 0.6, 0.9);
-      box.material = mat;
+  if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) {
+    ball.vx *= -1;
+    ball.vx *= friction;
+  }
 
-      gizmoManager = new BABYLON.GizmoManager(scene);
-      gizmoManager.attachableMeshes = [box];
-      gizmoManager.usePointerToAttachGizmos = false;
+  ball.vx *= friction;
 
-      return scene;
-    };
+  if (Math.abs(ball.vx) < 0.1) ball.vx = 0;
+  if (Math.abs(ball.vy) < 0.1 && ball.y + ball.radius >= canvas.height) ball.vy = 0;
+}
 
-    function activateGizmo(mode) {
-      if (!gizmoManager || !box) return;
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.beginPath();
+  ctx.fillStyle = 'tomato';
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.closePath();
+}
 
-      gizmoManager.positionGizmoEnabled = false;
-      gizmoManager.rotationGizmoEnabled = false;
-      gizmoManager.scaleGizmoEnabled = false;
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
 
-      if (mode === "move") {
-        gizmoManager.positionGizmoEnabled = true;
-      } else if (mode === "rotate") {
-        gizmoManager.rotationGizmoEnabled = true;
+loop();
+</script>
 
-        const rotGizmo = gizmoManager.gizmos.rotationGizmo;
-        rotGizmo.updateGizmoRotationToMatchAttachedMesh = true;
-        rotGizmo.snapDistance = BABYLON.Tools.ToRadians(15);
-      } else if (mode === "scale") {
-        gizmoManager.scaleGizmoEnabled = true;
-      }
-
-      gizmoManager.attachToMesh(box);
-    }
-
-    function toggleEditor() {
-      const editorContainer = document.getElementById("editorContainer");
-      if (!editorContainer.classList.contains("visible")) {
-        editorContainer.classList.add("visible");
-
-        if (!window.monacoEditor) {
-          require.config({ paths: { 'vs': 'https://unpkg.com/monaco-editor@0.44.0/min/vs' } });
-          window.MonacoEnvironment = {
-            getWorkerUrl: function (workerId, label) {
-              return `data:text/javascript;charset=utf-8,` +
-                encodeURIComponent(`
-                  self.MonacoEnvironment = {
-                    baseUrl: 'https://unpkg.com/monaco-editor@0.44.0/min/'
-                  };
-                  importScripts('https://unpkg.com/monaco-editor@0.44.0/min/vs/base/worker/workerMain.js');
-                `);
-            }
-          };
-          require(["vs/editor/editor.main"], function () {
-            window.monacoEditor = monaco.editor.create(document.getElementById("editor"), {
-              value: "// Write your JavaScript here\nconsole.log('Hello from editor!');",
-              language: "javascript",
-              theme: "vs-dark",
-              automaticLayout: true
-            });
-          });
-        }
-      } else {
-        editorContainer.classList.remove("visible");
-      }
-    }
-
-    function runEditorCode() {
-      if (window.monacoEditor) {
-        try {
-          const code = window.monacoEditor.getValue();
-          eval(code);
-        } catch (err) {
-          console.error("Error running code:", err);
-        }
-      }
-    }
-
-    const scene = createScene();
-    engine.runRenderLoop(() => scene.render());
-    window.addEventListener("resize", () => engine.resize());
-  </script>
 </body>
 </html>
+
+
+---physics 3d---
+
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8" />
+<title>physics 3d babylon.js (sample)</title>
+<style>
+  html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+  #renderCanvas { width: 100%; height: 100%; touch-action: none; display: block; }
+</style>
+</head>
+<body>
+
+<canvas id="renderCanvas"></canvas>
+
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/cannon.js"></script>
+
+<script>
+  const canvas = document.getElementById("renderCanvas");
+  const engine = new BABYLON.Engine(canvas, true);
+
+  const createScene = function () {
+    const scene = new BABYLON.Scene(engine);
+
+    scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), new BABYLON.CannonJSPlugin());
+
+    const camera = new BABYLON.ArcRotateCamera("camera1", -Math.PI / 2, Math.PI / 3, 10, BABYLON.Vector3.Zero(), scene);
+    camera.attachControl(canvas, true);
+
+    const light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(1, 1, 0), scene);
+
+    const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 10, height: 10}, scene);
+    ground.position.y = 0;
+    ground.receiveShadows = true;
+
+    ground.physicsImpostor = new BABYLON.PhysicsImpostor(
+      ground,
+      BABYLON.PhysicsImpostor.BoxImpostor,
+      { mass: 0, restitution: 0.9 },
+      scene
+    );
+
+    const sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {diameter: 1}, scene);
+    sphere.position.y = 5;
+
+    sphere.physicsImpostor = new BABYLON.PhysicsImpostor(
+      sphere,
+      BABYLON.PhysicsImpostor.SphereImpostor,
+      { mass: 1, restitution: 0.7 },
+      scene
+    );
+
+    return scene;
+  };
+
+  const scene = createScene();
+
+  engine.runRenderLoop(function () {
+    scene.render();
+  });
+
+  window.addEventListener("resize", function () {
+    engine.resize();
+  });
+</script>
+
+</body>
+</html>
+
+---Update 1.0---
+
+You can now create your own custom plugins!
+
+In Update 1.1, we will be adding new built-in plugins.
+
+---#####---
