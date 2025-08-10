@@ -1,0 +1,40 @@
+📚 Wetbox Game Engine Documentation
+🚀 Welcome to Wetbox Docs!
+🛠️ How to use Wetbox?
+🔗 Go to GitHub:
+
+https://github.com/restudio-games/wetbox-game-engine
+
+📂 Open the file editor.html and copy all the code.
+
+🖥️ On your desktop (Windows):
+
+👉 Right-click → New → Text Document
+✍️ Name your document anything you like, for example:
+my-first-wetbox-game
+📋 Open the new document and paste the copied code inside.
+💾 Save the file with a .html extension, for example:
+my-first-wetbox-game.html
+🌐 You will see an icon of a web browser. Double-click it to run.
+🎉 Congrats! The engine is now running.
+
+✏️ You can edit the code using any code editor such as Visual Studio Code or Notepad++.
+
+⚙️ What if the engine is incomplete?
+Wetbox relies on Plugins ⚡.
+
+🔗 Go to GitHub again:
+https://github.com/restudio-games/wetbox-game-engine
+
+📂 Open the file plugin (very important).html
+
+📋 Copy the plugin code you want.
+
+📌 Paste the plugin code inside the main engine code (editor.html) in the proper place.
+
+🚀 Enjoy your enhanced engine!
+
+⚠️ Developer Notes (eng)
+If the plugin code contains a function named createScene(), rename it to avoid conflicts with the engine’s main createScene() function.
+
+© 2025 restudio. All rights reserved.
