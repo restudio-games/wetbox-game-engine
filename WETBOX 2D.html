@@ -1,1 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wetbox 2D Engine (test)</title>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@7/dist/pixi.min.js"></script>
+<style>
+  html, body {
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#222;
+    font-family: "Segoe UI", sans-serif;
+  }
+  canvas { display:block; }
+  #ui-layer {
+    position: absolute; top:10px; left:10px; z-index: 999; display:flex; gap:10px;
+  }
+  .button {
+    background: linear-gradient(135deg,#7b4aff,#4b00b5);
+    color:white; border:none; padding:10px 16px; border-radius:8px; cursor:pointer;
+    font-size:14px; user-select:none;
+  }
+  .button:hover { filter: brightness(1.2); }
+</style>
+</head>
+<body>
+
+<div id="ui-layer">
+  <button id="btn-switch" class="button">Switch Scene</button>
+</div>
+
+<script>
+// ======== Wetbox 2D Engine (PixiJS 7) ========
+
+// ---- App ----
+const app = new PIXI.Application({ width: window.innerWidth, height: window.innerHeight, backgroundColor: 0x222222, resizeTo: window });
+document.body.appendChild(app.view);
+
+// ---- Scene System ----
+class Scene {
+    constructor(name) {
+        this.name = name;
+        this.container = new PIXI.Container();
+        this.container.sortableChildren = true;
+    }
+    addChild(child) { this.container.addChild(child); }
+    removeChild(child) { this.container.removeChild(child); }
+    update(delta) { }
+}
+
+class SceneManager {
+    constructor(app) { this.app = app; this.scenes = {}; this.currentScene = null; }
+    addScene(scene) { this.scenes[scene.name] = scene; }
+    switchScene(name) {
+        if(this.currentScene) this.app.stage.removeChild(this.currentScene.container);
+        this.currentScene = this.scenes[name];
+        this.app.stage.addChild(this.currentScene.container);
+    }
+    update(delta) { if(this.currentScene) this.currentScene.update(delta); }
+}
+const scenes = new SceneManager(app);
+
+// ---- Asset Manager ----
+class AssetManager {
+    static async loadTexture(path) { return await PIXI.Assets.load(path); }
+}
+
+// ---- Sprites ----
+class GameSprite extends PIXI.Sprite {
+    constructor(texture) { super(texture); this.anchor.set(0.5); }
+}
+
+// ---- Accessibility ----
+function makeAccessible(container, title, hint) {
+    container.accessible = true;
+    container.accessibleTitle = title;
+    container.accessibleHint = hint;
+    container.accessibleType = 'button';
+}
+
+// ---- Input ----
+const Input = {
+    keys: {},
+    init() {
+        window.addEventListener("keydown", e => { this.keys[e.key] = true; });
+        window.addEventListener("keyup", e => { this.keys[e.key] = false; });
+    },
+    isDown(key) { return !!this.keys[key]; }
+};
+Input.init();
+
+// ---- Example Scenes ----
+(async ()=>{
+    // Scene 1
+    const scene1 = new Scene("scene1");
+    const texture = await AssetManager.loadTexture("https://pixijs.io/examples/examples/assets/bunny.png");
+    const bunny = new GameSprite(texture);
+    bunny.x = app.renderer.width/2;
+    bunny.y = app.renderer.height/2;
+    scene1.addChild(bunny);
+    makeAccessible(bunny, "Bunny", "Cute rotating bunny");
+    scene1.update = (delta) => { bunny.rotation += 0.01*delta; };
+
+    // Scene 2
+    const scene2 = new Scene("scene2");
+    const bunny2 = new GameSprite(texture);
+    bunny2.x = app.renderer.width/2; bunny2.y = app.renderer.height/2;
+    bunny2.tint = 0xff4444;
+    scene2.addChild(bunny2);
+    scene2.update = (delta)=> { bunny2.rotation -= 0.02*delta; };
+
+    scenes.addScene(scene1);
+    scenes.addScene(scene2);
+    scenes.switchScene("scene1");
+
+    // UI Button
+    document.getElementById("btn-switch").addEventListener("click", ()=>{
+        const next = scenes.currentScene.name==="scene1" ? "scene2":"scene1";
+        scenes.switchScene(next);
+    });
+
+    // Ticker
+    app.ticker.add(delta => { scenes.update(delta); });
+
+})();
+</script>
+</body>
+</html>
 
