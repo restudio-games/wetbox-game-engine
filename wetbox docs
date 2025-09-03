@@ -37,4 +37,10 @@ https://github.com/restudio-games/wetbox-game-engine
 ⚠️ Developer Notes (eng)
 If the plugin code contains a function named createScene(), rename it to avoid conflicts with the engine’s main createScene() function.
 
+---2d---
+
+Do the same thing
+
+---Thanks for reading the docs---
+
 © 2025 restudio. All rights reserved.
