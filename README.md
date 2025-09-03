@@ -35,6 +35,10 @@ Please make sure to mention:
 Powered by Wetbox Game Engine - © restudio-games
 This is mandatory to respect the original creator's rights.
 
+---2d---
 
+do the same thing
+
+---Thanks for reading the docs---
 
 Made with 💜 by restudio-games
