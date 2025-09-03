@@ -125,3 +125,238 @@ Input.init();
 </body>
 </html>
 
+
+
+---1.0---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wetbox 2D Engine - PixiJS 7</title>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@7/dist/pixi.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+<script src="https://unpkg.com/monaco-editor@0.44.0/min/vs/loader.js"></script>
+<style>
+  html, body {
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden; font-family:"Segoe UI", sans-serif;
+    background:#222;
+  }
+  canvas { display:block; width:100%; height:100%; }
+
+  /* Controls left panel */
+  #controls {
+    position:absolute; top:20px; left:20px;
+    display:flex; flex-direction:column; gap:12px; z-index:999;
+  }
+  .control-btn {
+    background: linear-gradient(135deg,#7b4aff,#4b00b5);
+    color:white; border:none; padding:14px; border-radius:12px;
+    font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    width:48px; height:48px;
+  }
+  .control-btn i { font-size:20px; }
+
+  /* Script editor */
+  #editorContainer {
+    position:absolute; top:0; right:0; width:50%; height:100%;
+    display:flex; flex-direction:row; align-items:stretch; z-index:998;
+    background-color:#1e1e1e;
+    transform: translateX(100%); opacity:0;
+    transition: transform 0.4s ease, opacity 0.4s ease; pointer-events:none;
+  }
+  #editorContainer.visible {
+    transform: translateX(0); opacity:1; pointer-events:auto;
+  }
+  #runButton {
+    background: linear-gradient(to right,#7b4aff,#4b00b5);
+    color:white; border:none; padding:12px 20px; border-radius:12px;
+    cursor:pointer; font-size:16px; display:flex; align-items:center; gap:8px;
+    width:90px; margin:10px; white-space:nowrap; flex-shrink:0; user-select:none; justify-content:center;
+  }
+  #runButton:hover, #runButton:active, #runButton:focus { filter: brightness(1.2); outline:none; }
+  #editor { flex-grow:1; height:100%; margin:10px 10px 10px 0; }
+</style>
+</head>
+<body>
+
+<div id="controls">
+  <button class="control-btn" onclick="setMode('move')"><i class="fa-solid fa-up-down-left-right"></i></button>
+  <button class="control-btn" onclick="setMode('rotate')"><i class="fa-solid fa-rotate-right"></i></button>
+  <button class="control-btn" onclick="setMode('scale')"><i class="fa-solid fa-expand"></i></button>
+  <button class="control-btn" onclick="toggleEditor()"><i class="fa-solid fa-code"></i></button>
+</div>
+
+<canvas id="pixiCanvas"></canvas>
+<div id="editorContainer">
+  <button id="runButton" onclick="runEditorCode()"><i class="fa-solid fa-play"></i> Run</button>
+  <div id="editor"></div>
+</div>
+
+<script>
+const app = new PIXI.Application({ view: document.getElementById("pixiCanvas"), resizeTo: window, backgroundColor:0x222222 });
+document.body.appendChild(app.view);
+
+// --- Scene system ---
+class Scene {
+    constructor(name){ this.name=name; this.container=new PIXI.Container(); this.container.sortableChildren=true; }
+    addChild(c){ this.container.addChild(c); }
+    removeChild(c){ this.container.removeChild(c); }
+    update(delta){}
+}
+class SceneManager {
+    constructor(app){ this.app=app; this.scenes={}; this.currentScene=null; }
+    addScene(scene){ this.scenes[scene.name]=scene; }
+    switchScene(name){
+        if(this.currentScene) this.app.stage.removeChild(this.currentScene.container);
+        this.currentScene=this.scenes[name];
+        this.app.stage.addChild(this.currentScene.container);
+    }
+    update(delta){ if(this.currentScene) this.currentScene.update(delta); }
+}
+const scenes = new SceneManager(app);
+
+// --- Sprite class ---
+class GameSprite extends PIXI.Sprite { 
+    constructor(tex){ 
+        super(tex); 
+        this.anchor.set(0.5);
+        this.interactive = true;
+        this.cursor = 'pointer';
+        this.isDragging = false;
+        this.isScaling = false;
+        this.isRotating = false;
+        this.dragData = null;
+        this.scaleData = null;
+        this.rotationData = null;
+        this.hitArea = new PIXI.Rectangle(-this.width/2, -this.height/2, this.width, this.height);
+    } 
+}
+
+// --- Input ---
+const Input={keys:{}, init(){window.addEventListener('keydown', e=>{this.keys[e.key]=true}); window.addEventListener('keyup', e=>{this.keys[e.key]=false});}, isDown(key){return!!this.keys[key];}};
+Input.init();
+
+// --- Interaction system ---
+let currentMode = 'move';
+
+function setMode(mode) { 
+    currentMode = mode; 
+    if (scenes.currentScene) {
+        scenes.currentScene.container.children.forEach(child => {
+            if (child instanceof GameSprite) updateObjectCursor(child);
+        });
+    }
+}
+
+function updateObjectCursor(obj) {
+    switch(currentMode) {
+        case 'move': obj.cursor = 'move'; break;
+        case 'rotate': obj.cursor = 'grab'; break;
+        case 'scale': obj.cursor = 'nwse-resize'; break;
+    }
+}
+
+function setupObjectInteractions(obj) {
+    obj.on('mousedown', (event) => {
+        if (currentMode === 'move') {
+            obj.isDragging = true;
+            obj.dragData = event.data;
+            obj.alpha = 0.8;
+            obj.cursor = 'grabbing';
+        } else if (currentMode === 'rotate') {
+            obj.isRotating = true;
+            obj.rotationData = { startAngle: Math.atan2(event.data.global.y - obj.y, event.data.global.x - obj.x) - obj.rotation };
+            obj.cursor = 'grabbing';
+        } else if (currentMode === 'scale') {
+            const localPos = event.data.getLocalPosition(obj);
+            const halfWidth = obj.width / 2;
+            const halfHeight = obj.height / 2;
+            if (Math.abs(localPos.x) > halfWidth - 15 || Math.abs(localPos.y) > halfHeight - 15) {
+                obj.isScaling = true;
+                obj.scaleData = { startX: event.data.global.x, startY: event.data.global.y, startScaleX: obj.scale.x, startScaleY: obj.scale.y };
+                obj.cursor = 'grabbing';
+            } else {
+                obj.isDragging = true;
+                obj.dragData = event.data;
+                obj.alpha = 0.8;
+                obj.cursor = 'grabbing';
+            }
+        }
+    });
+
+    obj.on('mousemove', (event) => {
+        if (obj.isDragging && currentMode === 'move') {
+            const newPosition = obj.dragData.getLocalPosition(obj.parent);
+            obj.x = newPosition.x;
+            obj.y = newPosition.y;
+        } else if (obj.isRotating && currentMode === 'rotate') {
+            const mouseX = event.data.global.x;
+            const mouseY = event.data.global.y;
+            const angle = Math.atan2(mouseY - obj.y, mouseX - obj.x);
+            obj.rotation = angle - obj.rotationData.startAngle;
+        } else if (obj.isScaling && currentMode === 'scale') {
+            const mouseX = event.data.global.x;
+            const mouseY = event.data.global.y;
+            const deltaX = mouseX - obj.scaleData.startX;
+            const deltaY = mouseY - obj.scaleData.startY;
+            const scaleFactor = 1 + (deltaX + deltaY) / 100;
+            obj.scale.x = obj.scaleData.startScaleX * scaleFactor;
+            obj.scale.y = obj.scaleData.startScaleY * scaleFactor;
+        } else {
+            if (currentMode === 'scale') {
+                const localPos = event.data.getLocalPosition(obj);
+                const halfWidth = obj.width / 2;
+                const halfHeight = obj.height / 2;
+                obj.cursor = (Math.abs(localPos.x) > halfWidth - 15 || Math.abs(localPos.y) > halfHeight - 15) ? 'nwse-resize' : 'move';
+            } else updateObjectCursor(obj);
+        }
+    });
+
+    obj.on('mouseup', () => { obj.isDragging=obj.isScaling=obj.isRotating=false; obj.alpha=1; updateObjectCursor(obj); });
+    obj.on('mouseupoutside', () => { obj.isDragging=obj.isScaling=obj.isRotating=false; obj.alpha=1; updateObjectCursor(obj); });
+}
+
+// --- Example scene ---
+(async()=>{
+    const tex = await PIXI.Assets.load("https://pixijs.io/examples/examples/assets/bunny.png");
+
+    const scene1 = new Scene("scene1");
+    const bunny = new GameSprite(tex);
+    bunny.x = app.renderer.width/2; 
+    bunny.y = app.renderer.height/2;
+    setupObjectInteractions(bunny);
+    scene1.addChild(bunny);
+
+    scene1.update = (delta)=>{
+        // The rabbit does not move, it remains in place.
+    }
+
+    scenes.addScene(scene1);
+    scenes.switchScene("scene1");
+})();
+
+// --- Script editor ---
+function toggleEditor(){
+    const ed=document.getElementById("editorContainer");
+    if(!ed.classList.contains("visible")){
+        ed.classList.add("visible");
+        if(!window.monacoEditor){
+            require.config({ paths:{'vs':'https://unpkg.com/monaco-editor@0.44.0/min/vs'} });
+            window.MonacoEnvironment={getWorkerUrl:(w,l)=>`data:text/javascript;charset=utf-8,`+
+            encodeURIComponent(`self.MonacoEnvironment={baseUrl:'https://unpkg.com/monaco-editor@0.44.0/min/'}; importScripts('https://unpkg.com/monaco-editor@0.44.0/min/vs/base/worker/workerMain.js');`)};
+            require(["vs/editor/editor.main"],()=>{
+                window.monacoEditor = monaco.editor.create(document.getElementById("editor"),{
+                    value:"// JS code here\nconsole.log('Hello from PixiJS 7 editor!');",
+                    language:"javascript", theme:"vs-dark", automaticLayout:true
+                });
+            });
+        }
+    } else { ed.classList.remove("visible"); }
+}
+function runEditorCode(){ if(window.monacoEditor){ try{ eval(window.monacoEditor.getValue()); }catch(e){ console.error(e); } } }
+
+window.addEventListener("resize", ()=>{ app.renderer.resize(window.innerWidth, window.innerHeight); });
+</script>
+</body>
+</html>
